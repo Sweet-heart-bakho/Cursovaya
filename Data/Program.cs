@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 
 
 namespace DataCode
@@ -31,16 +31,35 @@ namespace DataCode
             return getted;
         }
 
-        public void DeleteUser(int speaker, List<DataCreator> getted)
+        public int[] GetUsersID()
         {
+            List<DataCreator> getted = GetData();
+            int[] ids = new int[getted.Count];
+            for (int i = 0; i < getted.Count; i++)
+                ids[i] = getted[i].UserId;
+            return ids;
+        }
+
+        public DataCreator GetUserID(int i)
+        {
+            List<DataCreator> getted = GetData();
+            foreach (DataCreator a in getted)
+                if (i == a.UserId)
+                    return a;
+            return null;
+        }
+
+        public bool DeleteUser(int speaker)
+        {
+            List<DataCreator> getted = GetData();
             for (int c = 0; c < getted.Count; c++)
                 if (speaker == getted[c].UserId)
                 {
                     getted.RemoveAt(c);
-                    break;
+                    UpdateData(getted);
+                    return true;
                 }
-            UpdateData(getted);
+            return false;
         }
-        static void Main() { }
     }
 }
