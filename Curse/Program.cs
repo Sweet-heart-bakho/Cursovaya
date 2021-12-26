@@ -41,7 +41,7 @@ namespace LogicCode
 			getted = a.GetData();
 
 			a.data = please(filename);
-			a.UserId = rnd(getted);
+			a.UserId = rnd();
 			a.UserName = name;
 
 			getted.Add(a);
@@ -124,7 +124,7 @@ namespace LogicCode
 						return false;
 			return true;
 		}
-		public int rnd(List<DataCreator> getted)				//генератор случайного int числа
+		public int rnd()				//генератор случайного int числа
 		{
 			int[] ids = a.GetUsersID();
 			int rand;
