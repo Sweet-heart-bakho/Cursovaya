@@ -1,4 +1,4 @@
-﻿using DataCode;	
+using DataCode;	
 using NAudio.Wave;
 
 namespace LogicCode
@@ -10,8 +10,35 @@ namespace LogicCode
 		public LogicClass() { }
 		public int CreateUser(string filename, string name)
 		{
+			//filename = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + @"\Аудиозаписи\Запись_МК3.m4a";
+			bool trash = false;
+			string buf = "";
+			if (filename.Substring(filename.Length - 4, 4) == ".m4a")
+            {
+				trash = true;
+				filename = m4aTowav(filename);
+			}
+			//конвертер с m4a на wav
+
+			if (Bitrate(filename))
+			{
+				if (trash)
+				{
+					buf = filename;
+					filename = FixWav(filename);
+					File.Delete(buf);
+					buf = filename;
+				}
+				else
+				{
+					filename = FixWav(filename);
+					buf = filename;
+					trash = true;
+				}
+			}
+
+
 			getted = a.GetData();
-			filename = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + @"\Аудиозаписи\Запись (3).m4a";
 
 			a.data = please(filename);
 			a.UserId = rnd(getted);
@@ -20,50 +47,57 @@ namespace LogicCode
 			getted.Add(a);
 			a.UpdateData(getted);
 
-			filename = "User: " + a.UserName + " with ID: " + a.UserId + " was created.";
+			if (trash)
+				File.Delete(buf);
 
 			return a.UserId;
 		}
-		public bool Compare(int speaker_1, int speaker_2)       //Пред метод сравнения
+		public string m4aTowav(string infile)                  //конвертер из ma4 в wav файл
 		{
-			DataCreator a = new DataCreator();
-			List<DataCreator> getted = a.GetData();
-			double finish = 0.0;
+			string outfile = infile.Substring(0, infile.Length - 4) + "_convert.wav";
 
-			foreach (DataCreator c in getted)
+			using (var reader = new MediaFoundationReader(infile))
 			{
-				if (c.UserId == speaker_1)
-					a = c;
-				if (c.UserId == speaker_2)
+				WaveFileWriter.CreateWaveFile(outfile, reader);
+			}
+			return outfile;
+		}
+		public string FixWav(string infile)
+        {
+			using (var reader = new WaveFileReader(infile))        //перевод файлов в нужный нам бирейт
+			{
+				infile = infile.Substring(0, infile.Length - 4) + "_fixed.wav";
+				var newFormat = new WaveFormat(8000, 16, 1);
+				using (var conversionStream = new WaveFormatConversionStream(newFormat, reader))
 				{
-					finish = Range(a.data, c.data);
-					break;
+					WaveFileWriter.CreateWaveFile(infile, conversionStream);
 				}
 			}
+			return infile;
+        }
+		public double Compare(int speaker_1, int speaker_2)       //Пред метод сравнения
+		{
+			double finish;
+			DataCreator b = a.GetUserID(speaker_1);
+			a = a.GetUserID(speaker_2);
 
-			if (finish > 0.1)
-				return true;
-			return false;
+			if (b.data.Length > a.data.Length)
+				finish = Range(a.data, b.data);
+			else
+				finish = Range(b.data, a.data);
+			return finish;
 		}
 		public bool DeleteUser(int speaker)         //Удаление данных о User
 		{
-			DataCreator a = new DataCreator();
-			List<DataCreator> getted = a.GetData();
-			foreach (DataCreator c in getted)
-				if (speaker == c.UserId)
-				{
-					a = c;
-					a.DeleteUser(a.UserId, getted);
-					return true;
-				}
+			if (a.DeleteUser(speaker))
+				return true;
 			return false;
 		}
 		public List<string[]> ShowData()            //Вытаскивание информации из Data и удобной передачи в UI
 		{
 			List<string[]> data = new List<string[]>();
-			DataCreator a = new DataCreator();
-			List<DataCreator> getted = a.GetData();
-			for (int c = 0; c < getted.Count; c += 2)
+			getted = a.GetData();
+			for (int c = 0; c < getted.Count; c++)
 			{
 				data.Add(new string[2]);
 				data[data.Count - 1][0] = getted[c].UserId.ToString();
@@ -73,18 +107,11 @@ namespace LogicCode
 		}
 		public List<string> ComboxChoice()				//передача данных для ComboBox
 		{
-			DataCreator a = new DataCreator();
 			List<string> data = new List<string>();
-			List<DataCreator> getted = a.GetData();
+			getted = a.GetData();
 			for (int i = 0; i < getted.Count; i++)
 				data.Add(getted[i].UserId.ToString() + " " + getted[i].UserName);
 			return data;
-		}
-		public bool PreCompare(string f1, string f2)
-        {
-			int user1 = Convert.ToInt32(f1.Substring(0, f1.IndexOf(' ')));
-			int user2 = Convert.ToInt32(f2.Substring(0, f2.IndexOf(' ')));
-			return Compare(user1, user2);
 		}
 		public bool FileCheck (string filename)
         {
@@ -97,17 +124,17 @@ namespace LogicCode
 						return false;
 			return true;
 		}
-		static int rnd(List<DataCreator> getted)				//генератор случайного int числа
+		public int rnd(List<DataCreator> getted)				//генератор случайного int числа
 		{
+			int[] ids = a.GetUsersID();
+			int rand;
 			Random random = new Random();
-			int a;
 			while (true)
 			{
-				a = random.Next(1, 100);
-				foreach (DataCreator c in getted)
-					if (c.UserId == a)
-						continue;
-				return a;
+				rand = random.Next(1, 100);
+				if (ids.Contains(rand))
+					continue;
+				return rand;
 			}
 		}
 		static double Range(double[] p, double[] q)			//корелляция Пирсона
@@ -115,7 +142,7 @@ namespace LogicCode
 			double d1 = 0.0;
 			double d2 = 0.0;
 			double d3 = 0.0;
-			for (int i = 0; i < p.Length; i++)
+			for (int i = 0; i < p.Length - 1; i++)
 			{
 				d1 += (p[i] - p[p.Length - 1]) * (q[i] - q[q.Length - 1]);
 				d2 += Math.Pow(p[i] - p[p.Length - 1], 2);
@@ -123,8 +150,7 @@ namespace LogicCode
 			}
 			d2 = Math.Sqrt(d2);
 			d3 = Math.Sqrt(d3);
-			d2 *= d3;
-			d1 /= d2;
+			d1 /= d2 * d3;
 			return Math.Abs(d1);
 		}
 		static bool Bitrate(string file)				//проверка бирейта файла
@@ -145,37 +171,8 @@ namespace LogicCode
 		{
 			int frame = 128;
 
-			string outfile = ma4Tomav(infile);
-
-			string ma4Tomav(string infile)                  //конвертер из ma4 в wav файл
-			{
-				string outfile = infile.Substring(0, infile.Length - 4) + "_convert.wav";
-
-				using (var reader = new MediaFoundationReader(infile))
-				{
-					WaveFileWriter.CreateWaveFile(outfile, reader);
-				}
-				return outfile;
-			}
-
-
-			if (Bitrate(outfile))
-			{
-				infile = outfile;
-				using (var reader = new WaveFileReader(outfile))        //перевод файлов в нужный нам бирейт
-				{
-					outfile = outfile.Substring(0, outfile.Length - 4) + "_fixed.wav";
-					var newFormat = new WaveFormat(8000, 16, 1);
-					using (var conversionStream = new WaveFormatConversionStream(newFormat, reader))
-					{
-						WaveFileWriter.CreateWaveFile(outfile, conversionStream);
-					}
-				}
-				File.Delete(infile);
-			}
-
 			List<double> datalist = new List<double>();					//извлечение данных
-			using (WaveFileReader reader = new WaveFileReader(outfile))
+			using (WaveFileReader reader = new WaveFileReader(infile))
 			{
 				byte[] bytesBuffer = new byte[reader.Length];
 				int read = reader.Read(bytesBuffer, 0, bytesBuffer.Length);
@@ -185,8 +182,6 @@ namespace LogicCode
 					datalist.Add(intSampleValue / 32768.0);
 				}
 			}
-
-			File.Delete(outfile);
 
 			List<List<double>> slices = new List<List<double>>();			//деление массива
 			for (int i = 0; i < datalist.Count - frame; i += frame / 2)
@@ -245,6 +240,6 @@ namespace LogicCode
 			double[] arr = datalist.ToArray();
 			return arr;
 		}
-		static void Main() { LogicClass a = new LogicClass(); a.CreateUser("f", "Bakho"); }
+		static void Main() { /*LogicClass a = new LogicClass(); a.CreateUser( "", "Кирилл 3");*/ }
 	}
 }
